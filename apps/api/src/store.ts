@@ -1,4 +1,4 @@
-import type { Database } from 'better-sqlite3'
+import Database from 'better-sqlite3'
 
 export interface Candle {
   asset_id: string
@@ -45,12 +45,12 @@ export interface Alert {
   created_utc: string
 }
 
-export function seed(db: Database.Database) {
+export function seed(db: any) {
   const assets: Asset[] = [
-    { id: 'BTCUSDT', symbol: 'BTCUSDT', name: 'Bitcoin / Tether', asset_class: 'crypto', venue: 'demo', demo: 1 },
-    { id: 'ETHUSDT', symbol: 'ETHUSDT', name: 'Ethereum / Tether', asset_class: 'crypto', venue: 'demo', demo: 1 },
-    { id: 'XAUUSD', symbol: 'XAUUSD', name: 'Gold / US Dollar', asset_class: 'commodity', venue: 'demo', demo: 1 },
-    { id: 'AAPL', symbol: 'AAPL', name: 'Apple Inc', asset_class: 'stock', venue: 'demo', demo: 1 }
+    { id: 'BTCUSDT', symbol: 'BTCUSDT', name: 'Bitcoin / Tether', asset_class: 'crypto', venue: 'demo', demo: true },
+    { id: 'ETHUSDT', symbol: 'ETHUSDT', name: 'Ethereum / Tether', asset_class: 'crypto', venue: 'demo', demo: true },
+    { id: 'XAUUSD', symbol: 'XAUUSD', name: 'Gold / US Dollar', asset_class: 'commodity', venue: 'demo', demo: true },
+    { id: 'AAPL', symbol: 'AAPL', name: 'Apple Inc', asset_class: 'stock', venue: 'demo', demo: true }
   ]
 
   const insertAsset = db.prepare(
@@ -88,17 +88,17 @@ export function seed(db: Database.Database) {
   }
 }
 
-export function listAssets(db: Database.Database): Asset[] {
+export function listAssets(db: any): Asset[] {
   return db.prepare('SELECT * FROM assets ORDER BY asset_class, symbol').all() as Asset[]
 }
 
-export function getLatestCandles(db: Database.Database, assetId: string, limit: number): Candle[] {
+export function getLatestCandles(db: any, assetId: string, limit: number): Candle[] {
   return db.prepare(
     `SELECT * FROM candles WHERE asset_id = ? ORDER BY start_utc DESC LIMIT ?`
   ).all(assetId, limit) as Candle[]
 }
 
-export function insertSignal(db: Database.Database, signal: Signal) {
+export function insertSignal(db: any, signal: Signal) {
   const stmt = db.prepare(
     `INSERT OR IGNORE INTO signals (id, rule_id, rule_version, asset_id, trigger_values, inputs_hash, fired_utc, evidence)
      VALUES (?,?,?,?,?,?,?,?)`
@@ -109,13 +109,13 @@ export function insertSignal(db: Database.Database, signal: Signal) {
   )
 }
 
-export function listSignals(db: Database.Database, limit = 50): Signal[] {
+export function listSignals(db: any, limit = 50): Signal[] {
   return db.prepare(
     'SELECT * FROM signals ORDER BY fired_utc DESC LIMIT ?'
   ).all(limit) as Signal[]
 }
 
-export function insertAlert(db: Database.Database, alert: Alert) {
+export function insertAlert(db: any, alert: Alert) {
   const stmt = db.prepare(
     `INSERT OR IGNORE INTO alerts (id, signal_id, channel, idempotency_key, delivery_status, created_utc)
      VALUES (?,?,?,?,?,?)`
@@ -126,7 +126,7 @@ export function insertAlert(db: Database.Database, alert: Alert) {
   )
 }
 
-export function listAlerts(db: Database.Database, limit = 50): Alert[] {
+export function listAlerts(db: any, limit = 50): Alert[] {
   return db.prepare(
     'SELECT * FROM alerts ORDER BY created_utc DESC LIMIT ?'
   ).all(limit) as Alert[]

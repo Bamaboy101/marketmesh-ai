@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { initDb, db } from './db'
 import { seed, listAssets, getLatestCandles, insertSignal, listSignals, insertAlert, listAlerts } from './store'
 import { RULES, type RuleInput } from './rules'
+import { BinanceConnector, createBinanceConnector } from './market/binance'
 
 const app = express()
 const PORT = Number(process.env.PORT) || 4000
@@ -12,6 +13,9 @@ const DATA_MODE = process.env.DATA_MODE || 'fixture'
 
 app.use(cors())
 app.use(express.json())
+
+// Initialize Binance connector
+const binanceConnector = createBinanceConnector()
 
 // Structured request logging
 app.use((_req: Request, _res: Response, next: NextFunction) => {
@@ -27,21 +31,56 @@ app.get('/api/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', mode: DATA_MODE, utc: new Date().toISOString() })
 })
 
+// Provider status
+app.get('/api/provider-status', (_req: Request, res: Response) => {
+  res.json(binanceConnector.getStatus())
+})
+
+// Provider health check
+app.get('/api/provider-health', async (_req: Request, res: Response) => {
+  try {
+    const status = await binanceConnector.healthCheck()
+    res.json(status)
+  } catch (err) {
+    res.status(503).json({ error: 'live data unavailable', details: (err as Error).message })
+  }
+})
+
 // Assets
 app.get('/api/assets', (_req: Request, res: Response) => {
   res.json(listAssets(db))
 })
 
-// Candles
+// Candles - supports both fixture (SQLite) and live (Binance) data
 const candlesQuery = z.object({ asset: z.string().min(1), limit: z.string().optional().transform(v => Number(v || 30)) })
-app.get('/api/candles', (req: Request, res: Response) => {
+app.get('/api/candles', async (req: Request, res: Response) => {
   const parsed = candlesQuery.safeParse(req.query)
   if (!parsed.success) {
     return res.status(400).json({ error: 'invalid query', issues: parsed.error.flatten() })
   }
   const { asset, limit } = parsed.data
-  const rows = getLatestCandles(db, asset, limit)
-  res.json(rows)
+
+  if (DATA_MODE === 'live') {
+    try {
+      const candles = await binanceConnector.fetchCandles({
+        symbol: asset,
+        interval: '1m',
+        limit: Math.min(limit, 1000)
+      })
+      // Store fetched candles in SQLite for caching
+      await binanceConnector.fetchAndStoreCandles(db, {
+        symbol: asset,
+        interval: '1m',
+        limit: Math.min(limit, 1000)
+      })
+      res.json(candles)
+    } catch (err) {
+      res.status(503).json({ error: 'live data unavailable', details: (err as Error).message })
+    }
+  } else {
+    const rows = getLatestCandles(db, asset, limit)
+    res.json(rows)
+  }
 })
 
 // Signals (deterministic rule evaluation)
@@ -58,7 +97,22 @@ app.post('/api/signals/evaluate', async (req: Request, res: Response) => {
   }
   const { asset_id, rule_id, limit } = parsed.data
 
-  const candles = getLatestCandles(db, asset_id, limit).reverse() // chronological
+  // Fetch candles - live mode fetches from Binance, fixture mode uses SQLite
+  let candles: any[]
+  if (DATA_MODE === 'live') {
+    const fetched = await binanceConnector.fetchCandles({
+      symbol: asset_id,
+      interval: '1m',
+      limit: Math.min(limit, 1000)
+    })
+    candles = fetched.map(c => ({
+      ...c,
+      // Ensure chronological order (oldest first) for rule evaluation
+    }))
+  } else {
+    candles = getLatestCandles(db, asset_id, limit)
+  }
+
   if (candles.length === 0) {
     return res.status(404).json({ error: `no candles for asset ${asset_id}` })
   }
