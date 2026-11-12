@@ -26,9 +26,6 @@ export default function App() {
   async function loadAssets() {
     const r = await fetch(`${API}/api/assets`)
     setAssets(await r.json())
-    if (assets.length === 0 && r.ok) {
-      // loaded empty; set first after state
-    }
   }
 
   async function loadCandles() {
@@ -106,21 +103,21 @@ export default function App() {
 
   return (
     <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 980, margin: '0 auto', padding: 20 }}>
-      <h1>MarketMesh AI <span style={{ color: '#666', fontSize: 0.6 }}>&bull; demo data</span></h1>
-      <p style={{ color: '#555' }}>Unified market intelligence &amp; explainable, rule-based signals. All data is labeled synthetic/demo unless a live provider is configured.</p>
+      <h1>MarketMesh AI <span style={{ color: '#666', fontSize: 0.6 }}>• demo data</span></h1>
+      <p style={{ color: '#555' }}>Unified market intelligence & explainable, rule-based signals. All data is labeled synthetic/demo unless a live provider is configured.</p>
 
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 20, flexWrap: 'wrap' }}>
         <select value={selected} onChange={e => setSelected(e.target.value)} style={{ padding: 8 }}>
           <option value="">Select asset</option>
           {assets.map(a => (
             <option key={a.id} value={a.id}>
-              {a.symbol} &mdash; {a.name} ({a.asset_class}) {a.demo ? '<span style=color:#999>[demo]</span>' : ''}
+              {a.symbol} — {a.name} ({a.asset_class}) {a.demo ? <span style={{ color: '#999' }}>[demo]</span> : ''}
             </option>
           ))}
         </select>
         <button onClick={loadCandles} disabled={!selected} style={{ padding: '8px 14px' }}>Load candles</button>
         <button onClick={evaluate} disabled={!selected || loading} style={{ padding: '8px 14px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
-          {loading ? 'Evaluating&hellip;' : 'Evaluate RSI-14'}
+          {loading ? 'Evaluating…' : 'Evaluate RSI-14'}
         </button>
         <button onClick={replay} disabled={!selected || loading} style={{ padding: '8px 14px', background: '#0d9488', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}>Replay run</button>
         {error && <span style={{ color: '#dc2626', marginLeft: 8 }}>{error}</span>}
@@ -139,8 +136,8 @@ export default function App() {
                   <th style={{ textAlign: 'right', borderBottom: '1px solid #ccc', padding: 6 }}>Low</th>
                   <th style={{ textAlign: 'right', borderBottom: '1px solid #ccc', padding: 6 }}>Close</th>
                   <th style={{ textAlign: 'right', borderBottom: '1px solid #ccc', padding: 6 }}>Vol</th>
-                  <th style={{ textAlign: 'right', borderBottom: '1px solid #ccc', padding: 6 }}Provider</th>
-                  <th style={{ textAlign: 'right', borderBottom: '1px solid #ccc', padding: 6 }}Delay</th>
+                  <th style={{ textAlign: 'right', borderBottom: '1px solid #ccc', padding: 6 }}>Provider</th>
+                  <th style={{ textAlign: 'right', borderBottom: '1px solid #ccc', padding: 6 }}>Delay</th>
                 </tr>
               </thead>
               <tbody>
