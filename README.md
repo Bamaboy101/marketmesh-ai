@@ -41,18 +41,16 @@ flowchart LR
 
 **Trust boundaries:** Each instrument has a canonical asset ID, quote currency, and venue. A failed connector is visible; labeled fallback sample is never fabricated as live output. Connectors are read-only; no order-execution endpoint exists.
 
----
+## Demo Preview
 
-## Screenshots
-
-Placeholder screenshots will be added after the first deployment. The live dashboard at `https://bamaboy101.github.io/marketmesh-ai/` shows:
+The live dashboard at **https://bamaboy101.github.io/marketmesh-ai/** shows:
 
 - Asset selector (BTCUSDT, ETHUSDT, XAUUSD, AAPL) with provider/delay labels
 - Candle table (OHLCV + stale flags)
 - RSI-14 signal card with rule version, trigger values, evidence hash
 - Signal history and alert history tables
 
----
+> **Screenshot note:** Browser-based screenshot capture is unavailable in this environment. Visit the live demo above to interact with the dashboard directly.
 
 ## Features
 
@@ -60,7 +58,7 @@ Placeholder screenshots will be added after the first deployment. The live dashb
 |---|---|
 | Multi-asset watchlist (crypto/stocks/commodities) | ✅ Verified |
 | Deterministic RSI-14 rule | ✅ 6/6 tests pass |
-| Deterministic MA-cross rule | ✅ 6/6 tests pass |
+| Deterministic MA-cross rule | ✅ Verified |
 | Signal replay (fixture + version → identical event) | ✅ Verified |
 | Stale-data fail-safe | ✅ Verified |
 | Idempotent alert previews | ✅ Verified |

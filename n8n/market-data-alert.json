@@ -1,0 +1,112 @@
+{
+  "name": "MarketMesh AI - Market Data Alert Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "cronExpression": "*/5 * * * *",
+        "timezone": "UTC"
+      },
+      "name": "Cron Trigger",
+      "type": "cron",
+      "typeVersion": 0,
+      "position": [240, 100]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://integrate.api.nvidia.com/v1/market-data/ohlcv",
+        "queryParameters": [
+          {
+            "name": "asset",
+            "value": "BTCUSDT"
+          },
+          {
+            "name": "timeframe",
+            "value": "1m"
+          }
+        ],
+        "responseFormat": "json"
+      },
+      "name": "Fetch Market Data",
+      "type": "httpRequest",
+      "typeVersion": 1,
+      "position": [440, 100],
+      "credentials": {
+        "headerAuth": "NVIDIA API"
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.close }}",
+              "operation": "lessThan",
+              "value2": {{ $json.rsi_14 }}
+            }
+          ]
+        }
+      },
+      "name": "Oversold Check (RSI < 30)",
+      "type": "switch",
+      "typeVersion": 0,
+      "position": [640, 100]
+    },
+    {
+      "parameters": {
+        "to": "security-team@example.com",
+        "subject": "MarketMesh AI: Oversold Signal Detected",
+        "text": "RSI-14 oversold signal detected for {{ $json.asset_id }}. Current RSI: {{ $json.rsi }}. Please review immediately."
+      },
+      "name": "Send Alert Email",
+      "type": "sendEmail",
+      "typeVersion": 1,
+      "position": [840, 100],
+      "credentials": {
+        "smtp": "SMTP Credentials"
+      }
+    }
+  ],
+  "connections": {
+    "Cron Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Market Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Market Data": {
+      "main": [
+        [
+          {
+            "node": "Oversold Check (RSI < 30)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Oversold Check (RSI < 30)": {
+      "main": [
+        [
+          {
+            "node": "Send Alert Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "1",
+  "triggerCount": 0,
+  "updatedAt": "2026-11-12T19:00:00Z",
+  "createdAt": "2026-11-12T19:00:00Z",
+  "versionId": "1"
+}
