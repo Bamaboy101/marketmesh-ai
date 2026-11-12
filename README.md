@@ -50,7 +50,11 @@ The live dashboard at **https://bamaboy101.github.io/marketmesh-ai/** shows:
 - RSI-14 signal card with rule version, trigger values, evidence hash
 - Signal history and alert history tables
 
-> **Screenshot note:** Browser-based screenshot capture is unavailable in this environment. Visit the live demo above to interact with the dashboard directly.
+## Demo Preview
+
+![Marketmesh Dashboard Desktop](./screenshots/desktop.png)
+
+![Marketmesh Dashboard Mobile](./screenshots/mobile.png)
 
 ## Features
 
