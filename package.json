@@ -1,0 +1,18 @@
+{
+  "name": "marketmesh-ai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Unified financial market intelligence dashboard with explainable, rule-based signals (MVP).",
+  "license": "MIT",
+  "workspaces": ["apps/api", "apps/web"],
+  "scripts": {
+    "setup": "npm --workspace apps/api install && npm --workspace apps/web install",
+    "dev:api": "npm --workspace apps/api run dev",
+    "dev:web": "npm --workspace apps/web run dev",
+    "test": "npm --workspace apps/api run test && npm --workspace apps/web run test",
+    "test:api": "npm --workspace apps/api run test",
+    "docker:up": "docker compose up --build",
+    "docker:down": "docker compose down"
+  },
+  "devDependencies": {}
+}

@@ -1,0 +1,34 @@
+[
+  {
+    "asset_id": "BTCUSDT",
+    "symbol": "BTCUSDT",
+    "name": "Bitcoin / Tether",
+    "asset_class": "crypto",
+    "venue": "demo",
+    "demo": true
+  },
+  {
+    "asset_id": "ETHUSDT",
+    "symbol": "ETHUSDT",
+    "name": "Ethereum / Tether",
+    "asset_class": "crypto",
+    "venue": "demo",
+    "demo": true
+  },
+  {
+    "asset_id": "XAUUSD",
+    "symbol": "XAUUSD",
+    "name": "Gold / US Dollar",
+    "asset_class": "commodity",
+    "venue": "demo",
+    "demo": true
+  },
+  {
+    "asset_id": "AAPL",
+    "symbol": "AAPL",
+    "name": "Apple Inc",
+    "asset_class": "stock",
+    "venue": "demo",
+    "demo": true
+  }
+]

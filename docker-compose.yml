@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  api:
+    build: ./apps/api
+    ports:
+      - "4000:4000"
+    environment:
+      - PORT=4000
+      - NODE_ENV=production
+      - DATA_MODE=fixture
+    volumes:
+      - ./apps/api:/usr/src/app
+      - /usr/src/app/node_modules
+    restart: unless-stopped
+
+  web:
+    build: ./apps/web
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_BASE=http://localhost:4000
+    volumes:
+      - ./apps/web:/usr/src/app
+      - /usr/src/app/node_modules
+    restart: unless-stopped
+
+  # Optional n8n alert preview webhook target
+  n8n:
+    image: n8nio/n8n:2
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=false
+    restart: unless-stopped
