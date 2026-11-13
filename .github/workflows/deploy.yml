@@ -24,6 +24,8 @@ jobs:
         run: npm install --workspaces
       - name: Run API tests
         run: npm run test:api
+      - name: Run Web tests
+        run: npm run test:web
 
   build-web:
     runs-on: ubuntu-latest
