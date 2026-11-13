@@ -218,7 +218,7 @@ app.post('/api/signals/evaluate', async (c) => {
       await c.env.DB.prepare(
         `INSERT INTO signals (signal_id, rule_id, rule_version, asset_id, trigger_values, inputs_hash, fired_utc, evidence, stale, session_id, fired) VALUES (?,?,?,?,?,?,?,?,?,?,?)`
       ).bind(
-        `${rule_id}:${asset_id}:${result.inputs_hash}`,
+        `${rule_id}:${asset_id}:${result.inputs_hash}:${crypto.randomUUID()}`,
         result.rule_id,
         result.rule_version,
         asset_id,

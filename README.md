@@ -1,147 +1,93 @@
 # MarketMesh AI
 
-Unified financial market intelligence dashboard with explainable, rule-based signals (MVP).
+Market watchers need to see *why* a signal fired, not just a green arrow. MarketMesh pairs a multi-asset watchlist with transparent, versioned rules and an auditable evidence trail.
 
-## Live Demo
+**Live application: https://bamaboy101.github.io/marketmesh-ai/** — open it in any browser. No login, no installation, no local server.
 
-🌐 **[Open the interactive dashboard →](https://bamaboy101.github.io/marketmesh-ai/)**
-
-No setup, no credentials, no backend required. Runs entirely in your browser with labeled synthetic data.
-
----
-
-## What It Delivers
-
-A stranger can run the sample dashboard locally, follow a market watchlist, and reproduce a sample signal without an exchange account.
-
-**Data → Signal → Alert**, fully auditable.
-
-- Multi-asset watchlist: BTC/ETH crypto fixtures, XAUUSD (gold) sample, AAPL (stock) sample — all labeled demo/delayed data
-- Two deterministic, versioned rules: **RSI-14 threshold** (oversold/overbought) and **moving-average cross**
-- Signal events with rule version, input hash, UTC timestamp, and evidence
-- Stale-data fail-safe: stale candles are shown as stale; signals suppressed
-- Signal history + idempotent alert previews (n8n webhook payload)
-- React/Vite dashboard with candle table and signal cards
-- **No live trading, no broker connections, no wallets**
-
----
+| | |
+|---|---|
+| Frontend | https://bamaboy101.github.io/marketmesh-ai/ |
+| Backend API | https://marketmesh-api.marketmesh-api.workers.dev |
+| API health | https://marketmesh-api.marketmesh-api.workers.dev/api/health |
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    A[Candle Fixtures] --> B[Normalize OHLCV]
-    B --> C[Rule Engine: RSI-14 / MA-Cross]
-    C --> D[Signal Event + Hash]
-    D --> E[Alert History + n8n Preview]
-    E --> F[React/Vite Dashboard]
-    style C fill:#e2e8f0,stroke:#334155
-    style F fill:#dbeafe,stroke:#2563eb
+  B[Browser] --> P["GitHub Pages<br/>apps/web/index.html"]
+  P -->|"HTTPS + x-demo-session"| W["Cloudflare Worker<br/>Hono API"]
+  W --> D[("Cloudflare D1")]
 ```
 
-**Trust boundaries:** Each instrument has a canonical asset ID, quote currency, and venue. A failed connector is visible; labeled fallback sample is never fabricated as live output. Connectors are read-only; no order-execution endpoint exists.
+The frontend is a single self-contained `apps/web/index.html` (React and Tailwind from CDN). There is **no build step**, so the committed file is exactly what is served — this removes any drift between source and deployment.
 
-## Demo Preview
+Three independent GitHub Actions workflows:
 
-The live dashboard at **https://bamaboy101.github.io/marketmesh-ai/** shows:
-
-- Asset selector (BTCUSDT, ETHUSDT, XAUUSD, AAPL) with provider/delay labels
-- Candle table (OHLCV + stale flags)
-- RSI-14 signal card with rule version, trigger values, evidence hash
-- Signal history and alert history tables
-
-## Demo Preview
-
-![Marketmesh Dashboard Desktop](./screenshots/desktop.png)
-
-![Marketmesh Dashboard Mobile](./screenshots/mobile.png)
-
-## Features
-
-| Feature | Status |
+| Workflow | Purpose |
 |---|---|
-| Multi-asset watchlist (crypto/stocks/commodities) | ✅ Verified |
-| Deterministic RSI-14 rule | ✅ 6/6 tests pass |
-| Deterministic MA-cross rule | ✅ Verified |
-| Signal replay (fixture + version → identical event) | ✅ Verified |
-| Stale-data fail-safe | ✅ Verified |
-| Idempotent alert previews | ✅ Verified |
-| No live trading / order execution | ✅ By design |
+| `pages.yml` | Publishes `apps/web/index.html` to GitHub Pages and verifies the *published* HTML references the Worker |
+| `ci.yml` | API typecheck (`tsc --noEmit`) and unit tests (`vitest`) with committed lockfiles |
+| `e2e.yml` | Headless Chromium against the **live public URL**; uploads desktop + mobile screenshots, Playwright report, network/console diagnostics |
 
----
+Frontend deployment is deliberately decoupled from backend tests, so a failing test can never take the public site down.
 
-## Installation
+## Verified features
+
+- Watchlist served by the API: BTCUSDT, ETHUSDT, SOLUSDT, XAUUSD, AAPL
+- Live 1-minute candles from the public Binance API, with a clearly labelled `demo-fixture` fallback when the feed is unavailable
+- Deterministic RSI-14 and moving-average cross rules, each returning rule id, version, trigger values, an input hash and human-readable evidence
+- Signal evaluation is a real API write; history is persisted per visitor and restored after reload
+- Idempotent alert previews (no delivery to third parties)
+
+## Technologies
+
+React (CDN) + Tailwind standalone frontend · Cloudflare Worker (Hono) · Cloudflare D1 · Binance public REST API
+
+## Running locally
 
 ```bash
-# Clone
-git clone https://github.com/bamaboy101/marketmesh-ai.git
-cd marketmesh-ai
-
-# Backend
-cd apps/api
-npm install          # dev deps include vitest
-npm test             # 6 tests pass
-npm run dev          # API on :4000
-
-# Frontend (new terminal)
-cd ../web
-npm install
-npm run dev          # Dashboard on :5173
-
-# Docker (optional, once Docker daemon available)
-cd ../.. && docker compose up --build
+git clone https://github.com/Bamaboy101/marketmesh-ai.git
+cd marketmesh-ai/apps/api
+npm ci
+npm test            # unit tests
+npm run build       # typecheck
+npx wrangler dev    # API on http://localhost:8787
 ```
 
-Copy `.env.example` to `.env`. No real credentials required — `DATA_MODE=fixture`.
+Serve `apps/web/index.html` with any static server to run the frontend locally.
 
----
+### Browser acceptance tests
 
-## Configuration
+```bash
+cd e2e
+npm ci
+npx playwright install chromium
+APP_NAME=marketmesh-ai WORKER_BASE=https://marketmesh-api.marketmesh-api.workers.dev npx playwright test
+```
 
-| Variable | Purpose | Required |
-|---|---|---|
-| `PORT` | API port (default 4000) | No |
-| `DATA_MODE` | `fixture` (default) or `live` | No |
-| `NVIDIA_API_KEY` / `NVIDIA_MODEL` | Optional live AI provider | No |
-| `N8N_WEBHOOK_URL` | Optional alert webhook target | No |
+Tests run against the deployed public URL by default and write screenshots to `e2e/screenshots/`.
 
-No credentials are hardcoded, logged, or committed.
+## Security and data isolation
 
----
+- **Anonymous sessions.** The Worker issues an opaque UUID session id; the browser stores it in `localStorage` and sends it as `x-demo-session`. Every record is stamped with that id and every read is filtered by it, so two different browsers never see each other's records, while a reload keeps your own history. Verified with two independent browser contexts.
+- **Rate limiting.** 120 requests/minute per session; exceeding it returns `429` with `Retry-After`.
+- **Request size ceiling.** Bodies above 512 KiB are rejected with `413`.
+- **CORS allowlist.** Only the published GitHub Pages origin (and local dev origins) receive `Access-Control-Allow-Origin`; arbitrary origins receive none.
+- **Input validation.** All write endpoints validate required fields and return `400` with a JSON error.
+- **No secrets in the frontend.** The published HTML contains no API keys, tokens or credentials.
 
-## AI Provider
+## Limitations and honest scope
 
-Configurable adapter supports **NVIDIA** (preferred), **OpenRouter** (optional fallback), and **demo** (default). NVIDIA API is reachable and authenticated; no suitable model is available for this account, so the default is clearly labeled demonstration responses. OpenRouter is not required.
+- No live trading, brokerage, order placement or wallet access — read-only market data only.
+- Fallback candles are synthetic and are always labelled `demo-fixture`; they are never presented as real market prices.
+- XAUUSD and AAPL are demonstration assets; the live feed covers the crypto symbols.
+- No LLM inference is used or claimed — the rules are deterministic.
 
----
+## Test evidence
 
-## Limitations
-
-- Live market-data connector not included (provider rights review pending)
-- Configurable alerts beyond RSI-14/MA-cross not included
-- No third-party charting library in MVP
-- No live trading, wallets, or broker connections
-- Stocks/gold use labeled sample/delayed data
-
----
-
-## Security
-
-- **No live trading.** No order-execution route, wallets, or broker connections.
-- **No invented live prices.** Stocks/gold use labeled sample/delayed data.
-- **No secrets in repo.** `.env.example` only; real credentials never committed.
-- See `docs/data-rights.md` for provider attribution.
-
----
-
-## Demo
-
-🌐 **[MarketMesh Live Demo](https://bamaboy101.github.io/marketmesh-ai/)** — browser-based, no setup, labeled synthetic data.
-
-View source: `https://github.com/bamaboy101/marketmesh-ai`
-
----
+CI, deployment and browser-acceptance runs — including screenshots and Playwright reports — are published as GitHub Actions artifacts on every run:
+**https://github.com/Bamaboy101/marketmesh-ai/actions**
 
 ## License
 
-[MIT](LICENSE)
+MIT
