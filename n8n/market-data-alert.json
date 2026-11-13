@@ -1,75 +1,29 @@
 {
-  "name": "MarketMesh AI - Market Data Alert Workflow",
+  "name": "MarketMesh AI - Market Data Alerts",
   "nodes": [
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "marketmesh-alert",
+        "path": "market-data-alert",
         "responseMode": "lastNode",
         "responseData": "allEntries"
       },
       "name": "Alert Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [
-        240,
-        100
-      ]
+      "position": [250, 100]
     },
     {
       "parameters": {
         "httpMethod": "POST",
-        "url": "http://localhost:4000/api/signals/evaluate",
+        "url": "https://bamaboy101.github.io/marketmesh-ai/",
         "jsonParameters": true,
-        "bodyParametersJson": "{ \"asset_id\": \"{{ $json.asset_id }}\", \"rule_id\": \"{{ $json.rule_id }}\", \"limit\": 30 }"
+        "bodyParametersJson": "{ \"signal_id\": \"{{ $json.signal_id }}\", \"channel\": \"preview\", \"asset_id\": \"{{ $json.asset_id }}\" }"
       },
-      "name": "Evaluate Signal",
+      "name": "Forward Signal",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 1,
-      "position": [
-        460,
-        100
-      ]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "boolean": [
-            {
-              "value1": "{{ $json.fired }}",
-              "operation": "equals",
-              "value2": true
-            }
-          ]
-        },
-        "options": {
-          "failOnError": false
-        }
-      },
-      "name": "Signal Fired?",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 1,
-      "position": [
-        640,
-        100
-      ]
-    },
-    {
-      "parameters": {
-        "to": "alerts@example.com",
-        "subject": "MarketMesh AI - Signal Alert: {{ $json.asset_id }}",
-        "text": "Signal detected!\\n\\nRule: {{ $json.rule_id }} v{{ $json.rule_version }}\\nAsset: {{ $json.asset_id }}\\nTrigger values: {{ $json.trigger_values }}\\nEvidence: {{ $json.evidence }}\\n\\nReview at: https://bamaboy101.github.io/marketmesh-ai/"
-      },
-      "name": "Send Signal Alert",
-      "type": "n8n-nodes-base.sendEmail",
-      "typeVersion": 1,
-      "position": [
-        840,
-        100
-      ],
-      "credentials": {
-        "smtp": "smtp-credentials"
-      }
+      "position": [460, 100]
     }
   ],
   "connections": {
@@ -77,29 +31,7 @@
       "main": [
         [
           {
-            "node": "Evaluate Signal",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Evaluate Signal": {
-      "main": [
-        [
-          {
-            "node": "Signal Fired?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Signal Fired?": {
-      "main": [
-        [
-          {
-            "node": "Send Signal Alert",
+            "node": "Send to ActionFlow",
             "type": "main",
             "index": 0
           }
@@ -112,5 +44,6 @@
   "versionId": "1",
   "triggerCount": 0,
   "updatedAt": "2026-11-13T00:00:00Z",
-  "createdAt": "2026-11-12T00:00:00Z"
+  "createdAt": "2026-11-12T00:00:00Z",
+  "versionId": "1"
 }
