@@ -2,14 +2,16 @@
   "name": "@marketmesh/api",
   "version": "0.1.0",
   "private": true,
-  "description": "MarketMesh AI backend API",
+  "description": "MarketMesh AI backend API (Cloudflare Worker + D1)",
   "main": "src/index.ts",
   "scripts": {
     "dev": "wrangler dev",
     "start": "wrangler dev",
     "build": "tsc --noEmit",
-    "test": "vitest run",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "d1:create": "wrangler d1 create marketmesh-db",
+    "d1:execute": "wrangler d1 execute marketmesh-db --file=./schema.sql",
+    "test": "vitest run"
   },
   "dependencies": {
     "hono": "^4.0.0",
@@ -17,8 +19,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240909.0",
-    "@types/node": "^26.6.6",
-    "tsx": "^4.0.0",
+    "@types/node": "^20.0.0",
     "typescript": "^5.0.0",
     "vitest": "^2.0.0",
     "wrangler": "^4.0.0"

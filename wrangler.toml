@@ -1,0 +1,14 @@
+name = "marketmesh-api"
+main = "apps/api/src/index.ts"
+compatibility_date = "2026-11-13"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "marketmesh-db"
+database_id = "280bc58b-beb8-4cd8-8862-6392a4b358b7"
+
+[observability]
+enabled = true
+
+[vars]
+DATA_MODE = "demo"
