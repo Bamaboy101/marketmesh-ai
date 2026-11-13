@@ -126,6 +126,7 @@
       function App() {
         const [assets, setAssets] = useState([]);
         const [candles, setCandles] = useState([]);
+        const [dataSource, setDataSource] = useState(null);
         const [signals, setSignals] = useState([]);
         const [selected, setSelected] = useState(null);
         const [loading, setLoading] = useState(false);
@@ -147,7 +148,7 @@
         const loadCandles = async (id) => {
           setLoading(true);
           setError(null);
-          try { const d = await api(`/api/candles?asset=${id}&limit=30`); setCandles(d); } catch (e) { setError(String(e.message || e)); }
+          try { const d = await api(`/api/candles?asset=${id}&limit=30`); setCandles(d); setDataSource(d && d.length ? d[0].provider : null); } catch (e) { setError(String(e.message || e)); }
           setLoading(false);
         };
 
@@ -212,6 +213,14 @@
                       }, 'Evaluate Signal')
                     )
                   ),
+                  dataSource && React.createElement('div', {
+                    'data-testid': 'data-source',
+                    className: 'mb-3 text-xs px-3 py-2 rounded border ' + (dataSource === 'binance'
+                      ? 'bg-green-50 border-green-200 text-green-800'
+                      : 'bg-amber-50 border-amber-200 text-amber-800')
+                  }, dataSource === 'binance'
+                    ? 'Live market data \u00b7 source: Binance public API (1m candles)'
+                    : 'Demonstration data \u00b7 source: demo-fixture. The live Binance feed is unavailable from this host, so these are synthetic sample prices \u2014 not real market data.'),
                   loading ? React.createElement('div', { className: 'h-64 flex items-center justify-center text-gray-400' }, 'Loading candles...') :
                     React.createElement(CandleChart, { candles })
                 )
