@@ -4,9 +4,198 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MarketMesh AI — Unified Market Intelligence Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      body { font-family: 'Inter', sans-serif; margin: 0; background: #f9fafb; }
+    </style>
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <script type="text/javascript">
+      const { useState, useEffect } = React;
+      const { LucideArrow, Clock, Shield, BarChart3, Globe, RefreshCw, Zap } = lucide;
+
+      const API_BASE = 'https://marketmesh-api.marketmesh-api.workers.dev';
+
+      async function api(path, opts = {}) {
+        const res = await fetch(`${API_BASE}${path}`, {
+          ...opts,
+          headers: { 'Content-Type': 'application/json', ...opts.headers }
+        });
+        if (!res.ok) throw new Error(`API ${path}: ${res.status}`);
+        return res.json();
+      }
+
+      const ASSETS = [
+        { id: 'BTCUSDT', symbol: 'BTCUSDT', name: 'Bitcoin / Tether', asset_class: 'crypto', venue: 'demo', demo: true },
+        { id: 'ETHUSDT', symbol: 'ETHUSDT', name: 'Ethereum / Tether', asset_class: 'crypto', venue: 'demo', demo: true },
+        { id: 'XAUUSD', symbol: 'XAUUSD', name: 'Gold / US Dollar', asset_class: 'commodity', venue: 'demo', demo: true },
+        { id: 'AAPL', symbol: 'AAPL', name: 'Apple Inc', asset_class: 'stock', venue: 'demo', demo: true },
+      ];
+
+      function AssetRow({ asset, onSelect, selectedId }) {
+        const isSelected = selectedId === asset.id;
+        return React.createElement('tr', {
+          onClick: () => onSelect(asset),
+          className: `cursor-pointer px-4 py-3 border-b hover:bg-gray-50 ${isSelected ? 'bg-blue-50 border-blue-200' : ''}`
+        },
+          React.createElement('td', { className: 'font-medium' }, asset.name),
+          React.createElement('td', { className: 'text-sm text-gray-500' }, asset.asset_class),
+          React.createElement('td', { className: 'text-sm text-gray-500' }, asset.venue),
+          React.createElement('td', { className: 'font-mono text-xs' }, asset.demo ? 'demo' : 'live')
+        );
+      }
+
+      function CandleChart({ candles }) {
+        if (!candles || candles.length === 0) {
+          return React.createElement('div', { className: 'h-64 flex items-center justify-center text-gray-400' }, 'No data');
+        }
+        const closes = candles.map(c => c.close);
+        const max = Math.max(...closes);
+        const min = Math.min(...closes);
+        const range = max - min || 1;
+        const h = 300;
+        const points = candles.map((c, i) => {
+          const y = h - ((c.close - min) / range) * (h - 40);
+          const x = i * 12 + 6;
+          return { x, y };
+        });
+        const pathData = points.map((p, i) => (i === 0 ? `M${p.x},${p.y}` : `L${p.x},${p.y}`)).join(' ');
+        return React.createElement('div', { className: 'h-64 w-full border rounded-lg p-4 relative overflow-hidden bg-white shadow-sm' },
+          React.createElement('svg', { className: 'w-full h-full', viewBox: `0 0 ${candles.length * 12} ${h}` },
+            React.createElement('path', {
+              d: pathData,
+              fill: 'none',
+              stroke: '#10b981',
+              strokeWidth: 2
+            }),
+            points.map((p, i) => React.createElement('circle', {
+              key: i,
+              cx: p.x,
+              cy: p.y,
+              r: 2.5,
+              fill: '#10b981'
+            }))
+          ),
+          React.createElement('div', { className: 'mt-2 text-xs text-gray-500' }, `Price range: $${min.toLocaleString()} - $${max.toLocaleString()}`)
+        );
+      }
+
+      function App() {
+        const [assets, setAssets] = useState([]);
+        const [candles, setCandles] = useState([]);
+        const [signals, setSignals] = useState([]);
+        const [selected, setSelected] = useState(null);
+        const [loading, setLoading] = useState(false);
+
+        useEffect(() => {
+          api('/api/assets').then(setAssets).catch(() => setAssets(ASSETS));
+        }, []);
+
+        const loadCandles = async (id) => {
+          setLoading(true);
+          try { const d = await api(`/api/candles?asset=${id}&limit=30`); setCandles(d); } catch (e) { console.error(e); }
+          setLoading(false);
+        };
+
+        const evalSignal = async () => {
+          if (!selected) return;
+          try {
+            const s = await api('/api/signals/evaluate', {
+              method: 'POST',
+              body: JSON.stringify({ asset_id: selected.id, rule_id: 'rsi14', limit: 30 })
+            });
+            setSignals(prev => [...prev.filter(x => x.rule_id !== 'rsi14' || x.asset_id !== selected.id), s]);
+          } catch (e) { console.error(e); }
+        };
+
+        return React.createElement('div', { className: 'min-h-screen' },
+          React.createElement('nav', { className: 'bg-white border-b shadow-sm' },
+            React.createElement('div', { className: 'max-w-7xl mx-auto px-4 py-3 flex justify-between items-center' },
+              React.createElement('div', { className: 'flex items-center gap-2' },
+                React.createElement('div', { className: 'w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold' }, 'M'),
+                React.createElement('span', { className: 'font-bold text-xl text-gray-800' }, 'MarketMesh AI')
+              ),
+              React.createElement('div', { className: 'flex items-center gap-4 text-sm text-gray-600' },
+                React.createElement('span', { className: 'flex items-center gap-1' },
+                  React.createElement('span', { className: 'w-2 h-2 bg-green-500 rounded-full animate-pulse' }),
+                  ' Live Demo'
+                )
+              )
+            )
+          ),
+          React.createElement('div', { className: 'max-w-7xl mx-auto px-4 py-6' },
+            React.createElement('div', { className: 'grid grid-cols-1 lg:grid-cols-3 gap-6' },
+              React.createElement('div', { className: 'lg:col-span-1' },
+                React.createElement('div', { className: 'bg-white rounded-lg shadow-sm border p-4' },
+                  React.createElement('h2', { className: 'font-bold mb-4' }, 'Watchlist'),
+                  React.createElement('table', { className: 'w-full text-sm' },
+                    React.createElement('tbody', null,
+                      assets.map(a => React.createElement(AssetRow, {
+                        key: a.id,
+                        asset: a,
+                        onSelect: setSelected,
+                        selectedId: selected?.id
+                      }))
+                    )
+                  )
+                )
+              ),
+              React.createElement('div', { className: 'lg:col-span-2' },
+                React.createElement('div', { className: 'bg-white rounded-lg shadow-sm border p-4' },
+                  React.createElement('div', { className: 'flex justify-between items-center mb-4' },
+                    React.createElement('h2', { className: 'font-bold' }, selected?.name || 'Select an asset'),
+                    React.createElement('div', { className: 'flex gap-2' },
+                      React.createElement('button', {
+                        onClick: () => selected && loadCandles(selected.id),
+                        disabled: loading || !selected,
+                        className: `px-3 py-1.5 text-sm border rounded hover:bg-gray-50 ${loading || !selected ? 'opacity-50' : ''}`
+                      }, loading ? 'Loading...' : 'Refresh'),
+                      React.createElement('button', {
+                        onClick: evalSignal,
+                        disabled: loading || !selected,
+                        className: `px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 ${loading || !selected ? 'opacity-50' : ''}`
+                      }, 'Evaluate Signal')
+                    )
+                  ),
+                  loading ? React.createElement('div', { className: 'h-64 flex items-center justify-center text-gray-400' }, 'Loading candles...') :
+                    React.createElement(CandleChart, { candles })
+                )
+              ),
+              React.createElement('div', { className: 'lg:col-span-1' },
+                React.createElement('div', { className: 'bg-white rounded-lg shadow-sm border p-4' },
+                  React.createElement('h2', { className: 'font-bold mb-4' }, 'Signal History'),
+                  React.createElement('div', { className: 'space-y-3' },
+                    signals.length > 0
+                      ? signals.map(s => React.createElement('div', {
+                          key: s.inputs_hash,
+                          className: 'p-3 border rounded bg-gray-50'
+                        },
+                          React.createElement('div', { className: 'flex justify-between items-start mb-1' },
+                            React.createElement('span', { className: 'font-medium' }, s.rule_id),
+                            React.createElement('span', {
+                              className: `text-xs px-2 py-0.5 rounded-full ${s.fired ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`
+                            }, s.fired ? 'FIRED' : 'NEUTRAL')
+                          ),
+                          React.createElement('div', { className: 'text-sm text-gray-600' }, s.asset_id),
+                          React.createElement('div', { className: 'mt-1 text-gray-900' }, s.evidence),
+                          React.createElement('div', { className: 'mt-1 text-xs text-gray-400' }, `RSI: ${s.trigger_values?.rsi?.toFixed?.(2) ?? 'N/A'} • Provider: ${s.provider ?? 'demo'}`)
+                        ))
+                      : React.createElement('div', { className: 'text-center py-8 text-gray-400 text-sm' }, 'No signals yet. Select an asset and evaluate.')
+                  )
+                )
+              )
+            )
+          )
+        );
+      }
+
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(React.createElement(App));
+    </script>
   </body>
 </html>
