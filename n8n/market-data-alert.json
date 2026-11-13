@@ -18,11 +18,7 @@
         "httpMethod": "POST",
         "url": "http://localhost:4000/api/signals/evaluate",
         "jsonParameters": true,
-        "bodyParametersJson": "{
-          \"asset_id\": \"{{ $json.asset_id }}\",
-          \"rule_id\": \"{{ $json.rule_id }}\",
-          \"limit\": 30
-        }"
+        "bodyParametersJson": "{ \"asset_id\": \"{{ $json.asset_id }}\", \"rule_id\": \"{{ $json.rule_id }}\", \"limit\": 30 }"
       },
       "name": "Evaluate Signal",
       "type": "n8n-nodes-base.httpRequest",
@@ -34,9 +30,9 @@
         "conditions": {
           "boolean": [
             {
-              "value1": \"={{ $json.fired }}\",
-              "operation\": \"equals\",
-              \"value2\": true
+              "value1": "{{ $json.fired }}",
+              "operation": "equals",
+              "value2": true
             }
           ]
         },
@@ -53,7 +49,7 @@
       "parameters": {
         "to": "alerts@example.com",
         "subject": "MarketMesh AI - Signal Alert: {{ $json.asset_id }}",
-        "text": "Signal detected!\\n\\nRule: {{ $json.rule_id }} v{rule_version}}\\nAsset: {{ $json.asset_id }}\\nTrigger values: {{ $json.trigger_values }}\\nEvidence: {{ $json.evidence }}\\n\\nReview at: https://bamaboy101.github.io/marketmesh-ai/"
+        "text": "Signal detected!\\n\\nRule: {{ $json.rule_id }} v{{ $json.rule_version }}\\nAsset: {{ $json.asset_id }}\\nTrigger values: {{ $json.trigger_values }}\\nEvidence: {{ $json.evidence }}\\n\\nReview at: https://bamaboy101.github.io/marketmesh-ai/"
       },
       "name": "Send Signal Alert",
       "type": "n8n-nodes-base.sendEmail",
