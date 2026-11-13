@@ -25,7 +25,9 @@ CREATE TABLE IF NOT EXISTS signals (
   inputs_hash TEXT NOT NULL,
   fired_utc TEXT NOT NULL,
   evidence TEXT NOT NULL,
-  stale INTEGER DEFAULT 0
+  stale INTEGER DEFAULT 0,
+  session_id TEXT,
+  fired INTEGER DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS alerts (

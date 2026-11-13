@@ -1,10 +1,12 @@
-import { Hono } from 'hono'
-import { cors } from 'hono/cors'
+import { Hono, type Context } from 'hono'
+import { guard, sessionOf } from './guard'
 import { z } from 'zod'
 
-const app = new Hono<{ Bindings: { DB: D1Database } }>()
+type AppEnv = { Bindings: { DB?: D1Database }; Variables: { session: string } }
 
-app.use('*', cors())
+const app = new Hono<AppEnv>()
+
+app.use('*', guard({ tables: ['signals', 'alerts'], columns: [['signals', 'fired', 'INTEGER']] }))
 app.use('*', async (c, next) => {
   const start = Date.now()
   await next()
@@ -14,6 +16,7 @@ app.use('*', async (c, next) => {
 const ASSETS = [
   { id: 'BTCUSDT', symbol: 'BTCUSDT', name: 'Bitcoin / Tether', asset_class: 'crypto', venue: 'demo', demo: true },
   { id: 'ETHUSDT', symbol: 'ETHUSDT', name: 'Ethereum / Tether', asset_class: 'crypto', venue: 'demo', demo: true },
+  { id: 'SOLUSDT', symbol: 'SOLUSDT', name: 'Solana / Tether', asset_class: 'crypto', venue: 'demo', demo: true },
   { id: 'XAUUSD', symbol: 'XAUUSD', name: 'Gold / US Dollar', asset_class: 'commodity', venue: 'demo', demo: true },
   { id: 'AAPL', symbol: 'AAPL', name: 'Apple Inc', asset_class: 'stock', venue: 'demo', demo: true },
 ]
@@ -72,7 +75,7 @@ function maCross(candles: any[]) {
 
 const RULES: Record<string, (candles: any[]) => any> = { rsi14, 'ma-cross': maCross }
 
-async function parseBody(c: any): Promise<any> {
+async function parseBody(c: Context): Promise<any> {
   try {
     const body = await c.req.raw.json()
     if (typeof body === 'object' && body !== null && !Array.isArray(body)) return body
@@ -96,7 +99,7 @@ app.get('/api/candles', async (c) => {
   try {
     const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${asset}&interval=1m&limit=${limit}`)
     if (res.ok) {
-      const binanceData = await res.json()
+      const binanceData = (await res.json()) as any[]
       candles = binanceData.map((row: any) => ({
         asset_id: asset,
         timeframe: '1m',
@@ -116,7 +119,7 @@ app.get('/api/candles', async (c) => {
   } catch (err) { /* fall back */ }
 
   if (candles.length === 0) {
-    const base = asset === 'BTCUSDT' ? 100000 : asset === 'ETHUSDT' ? 3500 : asset === 'XAUUSD' ? 2650 : 180
+    const base = asset === 'BTCUSDT' ? 100000 : asset === 'ETHUSDT' ? 3500 : asset === 'SOLUSDT' ? 180 : asset === 'XAUUSD' ? 2650 : 180
     const closes: number[] = []
     for (let i = 0; i < limit; i++) {
       if (i < 10) closes.push(base + i * 50)
@@ -150,7 +153,7 @@ app.post('/api/signals/evaluate', async (c) => {
   const body = await parseBody(c) as { asset_id: string; rule_id: string; limit?: number }
   const { asset_id, rule_id, limit = 30 } = body
   const rule = RULES[rule_id]
-  if (!rule) return c.status(400).json({ error: 'unknown rule' })
+  if (!rule) return c.json({ error: 'unknown rule' }, 400)
 
   let candles: any[] = []
   let provider = 'demo-fixture'
@@ -158,7 +161,7 @@ app.post('/api/signals/evaluate', async (c) => {
   try {
     const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${asset_id}&interval=1m&limit=${Math.min(limit, 1000)}`)
     if (res.ok) {
-      const binanceData = await res.json()
+      const binanceData = (await res.json()) as any[]
       candles = binanceData.map((row: any) => ({
         asset_id,
         timeframe: '1m',
@@ -179,7 +182,7 @@ app.post('/api/signals/evaluate', async (c) => {
   } catch (err) { /* fall back to demo */ }
 
   if (candles.length === 0) {
-    const base = asset_id === 'BTCUSDT' ? 100000 : asset_id === 'ETHUSDT' ? 3500 : asset_id === 'XAUUSD' ? 2650 : 180
+    const base = asset_id === 'BTCUSDT' ? 100000 : asset_id === 'ETHUSDT' ? 3500 : asset_id === 'SOLUSDT' ? 180 : asset_id === 'XAUUSD' ? 2650 : 180
     const closes: number[] = []
     for (let i = 0; i < limit; i++) {
       if (i < 10) closes.push(base + i * 50)
@@ -213,7 +216,7 @@ app.post('/api/signals/evaluate', async (c) => {
   try {
     if (c.env.DB) {
       await c.env.DB.prepare(
-        `INSERT INTO signals (signal_id, rule_id, rule_version, asset_id, trigger_values, inputs_hash, fired_utc, evidence, stale) VALUES (?,?,?,?,?,?,?,?,?)`
+        `INSERT INTO signals (signal_id, rule_id, rule_version, asset_id, trigger_values, inputs_hash, fired_utc, evidence, stale, session_id, fired) VALUES (?,?,?,?,?,?,?,?,?,?,?)`
       ).bind(
         `${rule_id}:${asset_id}:${result.inputs_hash}`,
         result.rule_id,
@@ -223,7 +226,9 @@ app.post('/api/signals/evaluate', async (c) => {
         result.inputs_hash,
         new Date().toISOString(),
         result.evidence,
-        stale ? 1 : 0
+        stale ? 1 : 0,
+        sessionOf(c),
+        result.fired ? 1 : 0
       ).run()
     }
   } catch (e) { console.error('D1 error:', e) }
@@ -234,7 +239,7 @@ app.post('/api/signals/evaluate', async (c) => {
 app.get('/api/signals', async (c) => {
   try {
     if (c.env.DB) {
-      const result = await c.env.DB.prepare(`SELECT * FROM signals ORDER BY fired_utc DESC LIMIT 50`).all()
+      const result = await c.env.DB.prepare(`SELECT * FROM signals WHERE session_id=? ORDER BY fired_utc DESC LIMIT 50`).bind(sessionOf(c)).all()
       return c.json(result.results || [])
     }
   } catch (e) { console.error('D1 error:', e) }
@@ -255,17 +260,17 @@ app.post('/api/alerts/preview', async (c) => {
   try {
     if (c.env.DB) {
       await c.env.DB.prepare(
-        `INSERT INTO alerts (alert_id, signal_id, channel, idempotency_key, delivery_status, created_utc) VALUES (?,?,?,?,?,?)`
-      ).bind(alert.id, alert.signal_id, alert.channel, alert.idempotency_key, alert.delivery_status, alert.created_utc).run()
+        `INSERT INTO alerts (alert_id, signal_id, channel, idempotency_key, delivery_status, created_utc, session_id) VALUES (?,?,?,?,?,?,?)`
+      ).bind(alert.id, alert.signal_id, alert.channel, alert.idempotency_key, alert.delivery_status, alert.created_utc, sessionOf(c)).run()
     }
   } catch (e) { console.error('D1 error:', e) }
-  return c.status(201).json(alert)
+  return c.json(alert, 201)
 })
 
 app.get('/api/alerts', async (c) => {
   try {
     if (c.env.DB) {
-      const result = await c.env.DB.prepare(`SELECT * FROM alerts ORDER BY created_utc DESC LIMIT 50`).all()
+      const result = await c.env.DB.prepare(`SELECT * FROM alerts WHERE session_id=? ORDER BY created_utc DESC LIMIT 50`).bind(sessionOf(c)).all()
       return c.json(result.results || [])
     }
   } catch (e) { console.error('D1 error:', e) }
@@ -276,14 +281,14 @@ app.post('/api/replay-run', async (c) => {
   const body = await parseBody(c) as { asset_id?: string; rule_id?: string; limit?: number }
   const { asset_id = 'BTCUSDT', rule_id = 'rsi14', limit = 30 } = body
   const rule = RULES[rule_id]
-  if (!rule) return c.status(400).json({ error: 'unknown rule' })
+  if (!rule) return c.json({ error: 'unknown rule' }, 400)
 
   let candles: any[] = []
 
   try {
     const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${asset_id}&interval=1m&limit=${Math.min(limit, 1000)}`)
     if (res.ok) {
-      const binanceData = await res.json()
+      const binanceData = (await res.json()) as any[]
       candles = binanceData.map((row: any) => ({
         asset_id,
         timeframe: '1m',
@@ -303,7 +308,7 @@ app.post('/api/replay-run', async (c) => {
   } catch (err) { /* fall back to demo */ }
 
   if (candles.length === 0) {
-    const base = asset_id === 'BTCUSDT' ? 100000 : asset_id === 'ETHUSDT' ? 3500 : asset_id === 'XAUUSD' ? 2650 : 180
+    const base = asset_id === 'BTCUSDT' ? 100000 : asset_id === 'ETHUSDT' ? 3500 : asset_id === 'SOLUSDT' ? 180 : asset_id === 'XAUUSD' ? 2650 : 180
     const closes: number[] = []
     for (let i = 0; i < limit; i++) {
       if (i < 10) closes.push(base + i * 50)
@@ -362,7 +367,7 @@ app.get('/api/provider-health', async (c) => {
     await res.json()
     return c.json({ status: 'healthy', lastSuccess: new Date().toISOString(), lastError: null, lastChecked: new Date().toISOString() })
   } catch (err) {
-    return c.status(503).json({ error: 'live data unavailable', details: (err as Error).message })
+    return c.json({ error: 'live data unavailable', details: (err as Error).message }, 503)
   }
 })
 
