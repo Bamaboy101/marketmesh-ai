@@ -4,9 +4,6 @@
   "private": true,
   "description": "Unified market intelligence dashboard with explainable rule-based signals (standalone frontend + Cloudflare Worker API).",
   "license": "MIT",
-  "workspaces": [
-    "apps/api"
-  ],
   "scripts": {
     "setup": "npm --prefix apps/api install",
     "test": "npm --prefix apps/api test",

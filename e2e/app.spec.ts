@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { instrument, openApp, shoot, dumpDiagnostics, WORKER, APP } from './helpers'
+import { instrument, openApp, shoot, dumpDiagnostics, expectWorkerCall, WORKER, APP } from './helpers'
 
 test.describe(`${APP} — live public acceptance`, () => {
   test('renders, loads watchlist from the Worker, evaluates a signal, persists across reload', async ({ page, browser }, testInfo) => {
@@ -13,22 +13,20 @@ test.describe(`${APP} — live public acceptance`, () => {
     // Asset list must come from the deployed Worker, including SOLUSDT.
     await expect(page.getByText('Solana / Tether')).toBeVisible({ timeout: 45_000 })
     await expect(page.getByText('Bitcoin / Tether')).toBeVisible()
-    expect(probe.workerCalls.some((c) => c.url.endsWith('/api/assets') && c.status === 200)).toBeTruthy()
+    await expectWorkerCall(probe.workerCalls, '/api/assets')
     await shoot(page, '01-watchlist', project)
 
     // Select BTCUSDT and load real candles.
     await page.getByText('Bitcoin / Tether').click()
     await page.getByRole('button', { name: 'Refresh' }).click()
     await expect(page.locator('svg path').first()).toBeVisible({ timeout: 45_000 })
-    expect(probe.workerCalls.some((c) => c.url.includes('/api/candles') && c.status === 200)).toBeTruthy()
+    await expectWorkerCall(probe.workerCalls, '/api/candles')
     await shoot(page, '02-candles', project)
 
     // Evaluate a signal through the real API.
     await page.getByRole('button', { name: 'Evaluate Signal' }).click()
     await expect(page.getByText(/RSI-14 =/)).toBeVisible({ timeout: 45_000 })
-    const evalCall = probe.workerCalls.find((c) => c.url.includes('/api/signals/evaluate'))
-    expect(evalCall, 'signal evaluation must hit the Worker').toBeTruthy()
-    expect(evalCall!.status).toBe(200)
+    await expectWorkerCall(probe.workerCalls, '/api/signals/evaluate', 'POST')
     await shoot(page, '03-signal', project)
 
     // Persistence: the signal is stored server-side and survives a reload.
