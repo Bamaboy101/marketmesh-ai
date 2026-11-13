@@ -42,7 +42,8 @@ export function rsi14(input: RuleInput): any {
   }
 }
 
-export function maCross(candles: any[]): any {
+export function maCross(input: RuleInput): any {
+  const { candles } = input
   const FAST = 5
   const SLOW = 10
   if (candles.length < SLOW + 1) return { fired: false, fast: 0, slow: 0, evidence: `Insufficient candles: ${candles.length} (need ${SLOW + 1}+).` }
